@@ -13,6 +13,8 @@ import {
   Copy,
   Check,
   Share2,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -77,8 +79,20 @@ export default function ResultCard({ result }: { result: AnalysisResult }) {
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiVisible, setAiVisible] = useState(false);
+  const [aiExplanation, setAiExplanation] = useState("");
+  const [aiError, setAiError] = useState<string | null>(null);
   const config = RISK_CONFIG[result.risk];
   const RiskIcon = config.icon;
+
+  const shouldOfferAi =
+    result.breakdown.type === "UNKNOWN" ||
+    result.reasons.some((reason) =>
+      ["Transaction Failed", "Program Execution Failed", "Custom Program Error"].includes(
+        reason.label
+      )
+    );
 
   const generateMarkdown = (): string => {
     const riskEmoji = result.risk === "HIGH" ? "🔴" : result.risk === "MEDIUM" ? "🟡" : "🟢";
@@ -126,6 +140,61 @@ export default function ResultCard({ result }: { result: AnalysisResult }) {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard may not be available
+    }
+  };
+
+  const handleExplainWithAi = async () => {
+    setAiLoading(true);
+    setAiVisible(true);
+    setAiExplanation("");
+    setAiError(null);
+
+    try {
+      const response = await fetch("/api/explain", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          signature: result.breakdown.signature,
+          analysis: result,
+        }),
+      });
+
+      if (!response.ok) {
+        const fallback = "Failed to generate AI explanation.";
+        try {
+          const data = (await response.json()) as { error?: string };
+          setAiError(data.error || fallback);
+        } catch {
+          setAiError(fallback);
+        }
+        return;
+      }
+
+      if (!response.body) {
+        setAiError("No explanation stream received.");
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: !done });
+          setAiExplanation((previous) => previous + chunk);
+        }
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unexpected AI explanation error.";
+      setAiError(message);
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -309,6 +378,48 @@ export default function ResultCard({ result }: { result: AnalysisResult }) {
                 </motion.div>
               ))}
             </div>
+          </div>
+        )}
+
+        {shouldOfferAi && (
+          <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+            <div className="mb-2 flex items-center justify-between">
+              <h4
+                className="text-sm font-semibold text-foreground"
+                style={{ fontFamily: "var(--font-space-grotesk)" }}
+              >
+                Detailed Breakdown
+              </h4>
+              <button
+                onClick={handleExplainWithAi}
+                type="button"
+                disabled={aiLoading}
+                className="inline-flex items-center gap-1 rounded-md border border-[#9945FF]/35 bg-[#9945FF]/10 px-3 py-1.5 text-xs font-medium text-[#D7B8FF] transition-colors hover:bg-[#9945FF]/20 disabled:opacity-50"
+              >
+                {aiLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                View Detailed Breakdown
+              </button>
+            </div>
+
+            {aiVisible && (
+              <div className="rounded-lg border border-[#9945FF]/25 bg-[#9945FF]/8 p-3">
+                {aiError ? (
+                  <p className="text-xs text-red-300">{aiError}</p>
+                ) : aiExplanation ? (
+                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-[#E9DCFF]">
+                    {aiExplanation}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Generating explanation...
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

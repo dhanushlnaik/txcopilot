@@ -100,3 +100,22 @@ export interface NetworkResponse {
   data?: NetworkStatus;
   error?: string;
 }
+
+export type WebhookEvent = "failed" | "high_risk";
+
+export interface WebhookSubscription {
+  id: string;
+  walletAddress: string;
+  webhookUrl: string;
+  events: WebhookEvent[];
+  createdAt: string;
+  lastChecked?: string;
+}
+
+export interface WebhookAlertPayload {
+  event: "transaction_failed" | "transaction_high_risk";
+  wallet: string;
+  signature: string;
+  analysis: AnalysisResult;
+  timestamp: string;
+}

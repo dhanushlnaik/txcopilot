@@ -1,4 +1,5 @@
 import "server-only";
+import type { ConfirmedSignatureInfo } from "@solana/web3.js";
 import { Connection, PublicKey } from "@solana/web3.js";
 
 // ===========================
@@ -174,6 +175,21 @@ export async function getAccountBalance(
   } catch {
     return null;
   }
+}
+
+/**
+ * Fetch recent signatures for a wallet address.
+ */
+export async function getRecentSignaturesForAddress(
+  walletAddress: string,
+  limit = 20
+): Promise<ConfirmedSignatureInfo[]> {
+  const connection = getConnection();
+  const pubkey = new PublicKey(walletAddress);
+
+  return connection.getSignaturesForAddress(pubkey, {
+    limit,
+  });
 }
 
 /**

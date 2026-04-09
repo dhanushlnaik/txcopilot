@@ -43,6 +43,10 @@ Simulate a transaction **before sending it on-chain**:
 | `/api/analyze` | POST | Analyze a transaction by signature |
 | `/api/simulate` | POST | Simulate a base64-encoded transaction |
 | `/api/network` | GET | Get current network status (TPS, congestion, fees) |
+| `/api/webhooks` | GET/POST | Manage webhook subscriptions |
+| `/api/webhooks/[id]` | DELETE | Remove a webhook subscription |
+| `/api/webhooks/check` | POST | Poll wallets and deliver alert webhooks |
+| `/api/explain` | POST | Stream AI explanation for unclear/generic failures |
 
 ---
 
@@ -76,6 +80,9 @@ Simulate a transaction **before sending it on-chain**:
    - `HELIUS_API_KEY`: Highly recommended for enriched analytics.
    - `HELIUS_RPC_URL`: Your Helius custom RPC URL.
    - `SOLANA_RPC_URL`: Fallback public RPC.
+   - `WEBHOOK_ADMIN_KEY`: Optional admin secret for webhook APIs.
+   - `GEMINI_API_KEY`: Optional key to enable AI explanations.
+   - `GEMINI_EXPLAIN_MODEL`: Optional model override (`gemini-1.5-flash` default).
 
 3. **Run the Development Server:**
    ```bash

@@ -175,3 +175,83 @@ export async function getAccountBalance(
     return null;
   }
 }
+
+/**
+ * Simulate a raw transaction (base64 encoded) without submitting it.
+ * Returns a result shaped similarly to getTransaction so the analyzer can process it.
+ */
+export async function simulateRawTransaction(base64Tx: string) {
+  const connection = getConnection();
+
+  try {
+    const txBuffer = Buffer.from(base64Tx, "base64");
+
+    // Try versioned transaction first, fall back to legacy
+    let transaction;
+    try {
+      const { VersionedTransaction } = await import("@solana/web3.js");
+      transaction = VersionedTransaction.deserialize(txBuffer);
+    } catch {
+      const { Transaction } = await import("@solana/web3.js");
+      transaction = Transaction.from(txBuffer);
+    }
+
+    const simulation = await connection.simulateTransaction(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      transaction as any,
+      {
+        sigVerify: false,
+        replaceRecentBlockhash: true,
+        commitment: "confirmed",
+      }
+    );
+
+    const result = simulation.value;
+
+    // Shape the result like a raw transaction for the analyzer
+    return {
+      simulated: true,
+      success: result.err === null,
+      meta: {
+        err: result.err,
+        fee: 5000, // Default base fee estimate
+        logMessages: result.logs || [],
+        computeUnitsConsumed: result.unitsConsumed || 0,
+      },
+      // We don't have a real slot/blockTime for simulated txs
+      slot: null,
+      blockTime: null,
+      transaction: {
+        message: {
+          // Extract account keys from the transaction if possible
+          accountKeys: [],
+          instructions: [],
+          header: { numRequiredSignatures: 1 },
+        },
+      },
+    };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown simulation error";
+    return {
+      simulated: true,
+      success: false,
+      error: errorMessage,
+      meta: {
+        err: { SimulationFailed: errorMessage },
+        fee: 0,
+        logMessages: [`Simulation error: ${errorMessage}`],
+        computeUnitsConsumed: 0,
+      },
+      slot: null,
+      blockTime: null,
+      transaction: {
+        message: {
+          accountKeys: [],
+          instructions: [],
+          header: { numRequiredSignatures: 1 },
+        },
+      },
+    };
+  }
+}

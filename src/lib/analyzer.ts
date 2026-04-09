@@ -17,11 +17,12 @@ const ERROR_CODE_MAP: Record<
   string,
   { label: string; description: string; fix: string; fixPriority: "critical" | "recommended" | "optional" }
 > = {
-  "0x1771": {
-    label: "Slippage Tolerance Exceeded",
+  // ===== Generic / System Program =====
+  "0x0": {
+    label: "Insufficient Token Balance",
     description:
-      "The token price moved beyond your slippage tolerance between when you submitted and when the transaction was processed.",
-    fix: "Increase slippage tolerance to 3–5%, or retry when market volatility is lower.",
+      "The source account doesn't have enough tokens to complete this transfer or swap.",
+    fix: "Check your token balance and reduce the amount, or acquire more tokens.",
     fixPriority: "critical",
   },
   "0x1": {
@@ -31,26 +32,141 @@ const ERROR_CODE_MAP: Record<
     fix: "Add at least 0.05 SOL to your wallet to cover fees and rent-exempt minimums.",
     fixPriority: "critical",
   },
-  "0x0": {
-    label: "Insufficient Token Balance",
+
+  // ===== Jupiter v6 (6001–6025) =====
+  "0x1771": {
+    label: "Slippage Tolerance Exceeded",
     description:
-      "The source account doesn't have enough tokens to complete this transfer or swap.",
-    fix: "Check your token balance and reduce the amount, or acquire more tokens.",
+      "The token price moved beyond your slippage tolerance between when you submitted and when the transaction was processed.",
+    fix: "Increase slippage tolerance to 3–5%, or retry when market volatility is lower.",
     fixPriority: "critical",
   },
+  "0x1778": {
+    label: "Not Enough Account Keys (Jupiter)",
+    description:
+      "The transaction is missing required account keys. This usually happens if the transaction was modified after being built by the Jupiter API.",
+    fix: "Do not modify the transaction after fetching it from the Jupiter API. Rebuild and retry.",
+    fixPriority: "critical",
+  },
+  "0x177e": {
+    label: "Incorrect Token Program (Jupiter)",
+    description:
+      "A Token-2022 token was passed to the legacy SPL Token program, or vice versa.",
+    fix: "Ensure the correct token program is used. Token-2022 tokens require the TokenzQd... program.",
+    fixPriority: "critical",
+  },
+  "0x1788": {
+    label: "Insufficient Funds for Swap (Jupiter)",
+    description:
+      "Your wallet lacks enough tokens for this swap, or not enough SOL for rent and fees.",
+    fix: "Check both your token balance and SOL balance. You need SOL for fees even in token-to-token swaps.",
+    fixPriority: "critical",
+  },
+  "0x1789": {
+    label: "Invalid Token Account (Jupiter)",
+    description:
+      "An account provided to the swap is uninitialized or doesn't match what the program expects.",
+    fix: "Ensure all Associated Token Accounts exist. Create them before retrying the swap.",
+    fixPriority: "critical",
+  },
+
+  // ===== Raydium AMM / CLMM =====
   "0x1785": {
-    label: "Amount Too Small",
+    label: "Amount Too Small (Raydium)",
     description:
       "The swap output amount is too small, often due to low liquidity or unfavorable rates.",
-    fix: "Try a smaller input amount or use a different liquidity pool.",
+    fix: "Try a larger input amount or use a different liquidity pool.",
     fixPriority: "recommended",
   },
   "0x1786": {
-    label: "Pool Liquidity Depleted",
+    label: "Pool Liquidity Depleted (Raydium)",
     description:
       "The liquidity pool doesn't have enough reserves to fulfill your swap.",
     fix: "Try a different pool or reduce the swap amount.",
     fixPriority: "recommended",
+  },
+  "0x16": {
+    label: "Pool Not Live Yet (Raydium)",
+    description:
+      "The pool hasn't reached its configured open time. You're trying to interact with it too early.",
+    fix: "Wait until the pool's launch time, then retry the transaction.",
+    fixPriority: "recommended",
+  },
+
+  // ===== Orca Whirlpool =====
+  "0x177c": {
+    label: "Token Max Exceeded (Orca)",
+    description:
+      "The amount of input tokens required exceeds the maximum you specified (slippage limit hit).",
+    fix: "Increase slippage tolerance or reduce the swap amount.",
+    fixPriority: "critical",
+  },
+  "0x177d": {
+    label: "Token Min Not Met (Orca)",
+    description:
+      "The output amount is less than the minimum you specified (slippage limit hit).",
+    fix: "Increase slippage tolerance, or wait for better liquidity.",
+    fixPriority: "critical",
+  },
+  "0x177b": {
+    label: "Zero Liquidity (Orca)",
+    description:
+      "The pool has zero liquidity in the current price range. Your swap cannot be filled.",
+    fix: "Try a different pool or wait for liquidity providers to add funds.",
+    fixPriority: "critical",
+  },
+  "0x1780": {
+    label: "Invalid Tick Array (Orca)",
+    description:
+      "An incorrect tick array sequence was provided. The swap route is invalid for the current price range.",
+    fix: "Refresh the swap quote and retry — the pool price may have moved.",
+    fixPriority: "recommended",
+  },
+
+  // ===== Pump.fun =====
+  "0x1778_pump": {
+    label: "Overflow Error (Pump.fun)",
+    description:
+      "Arithmetic overflow during bonding curve calculation. Often caused by a missing bonding_curve_v2 PDA after a platform upgrade.",
+    fix: "Ensure you're including the bonding_curve_v2 PDA as the last account. Update your SDK or client.",
+    fixPriority: "critical",
+  },
+  "0x177b_pump": {
+    label: "Too Little SOL Received (Pump.fun)",
+    description:
+      "The sell output is below the minimum threshold (1000 lamports). Liquidity may be insufficient.",
+    fix: "Lower your slippage tolerance, or sell a smaller amount of tokens.",
+    fixPriority: "critical",
+  },
+  "0x7d6": {
+    label: "Constraint Seeds Violation (Pump.fun)",
+    description:
+      "The PDA seeds for the bonding curve don't match the mint address being used.",
+    fix: "Verify the bonding curve PDA is derived from the correct mint address.",
+    fixPriority: "critical",
+  },
+
+  // ===== Common Anchor Errors =====
+  "0xbbf": {
+    label: "Account Discriminator Mismatch",
+    description:
+      "The account data doesn't match the expected program type. The account may belong to a different program.",
+    fix: "Verify you're interacting with the correct program and account.",
+    fixPriority: "critical",
+  },
+  "0xbc0": {
+    label: "Account Not Initialized",
+    description:
+      "A required account hasn't been initialized yet.",
+    fix: "Initialize the account before using it in this transaction.",
+    fixPriority: "critical",
+  },
+  "0x7d1": {
+    label: "Constraint Violation",
+    description:
+      "An Anchor constraint check failed. This usually means invalid input data or account state.",
+    fix: "Check that all accounts and parameters match what the program expects.",
+    fixPriority: "critical",
   },
 };
 
@@ -116,6 +232,87 @@ const INSTRUCTION_ERROR_PATTERNS: Array<{
     description:
       "An account is owned by a different program than expected.",
     fix: "Verify you're interacting with the correct program and accounts.",
+    severity: "HIGH",
+  },
+  // ===== DeFi-specific log patterns =====
+  {
+    pattern: /exceeded CUs meter/i,
+    label: "Compute Units Exceeded",
+    description:
+      "The transaction ran out of compute units before completing. Complex DeFi routes or multiple instructions can exhaust the default budget.",
+    fix: "Add a ComputeBudget instruction requesting more CUs (e.g., 400,000 or higher).",
+    severity: "HIGH",
+  },
+  {
+    pattern: /Swap failed/i,
+    label: "Swap Failed",
+    description:
+      "The DEX swap instruction failed. This can be caused by stale quotes, price movement, or pool state changes.",
+    fix: "Refresh the swap quote and retry with higher slippage tolerance.",
+    severity: "HIGH",
+  },
+  {
+    pattern: /exceeds desired slippage limit/i,
+    label: "Slippage Limit Hit",
+    description:
+      "The actual execution price exceeded your configured slippage limit.",
+    fix: "Increase slippage to 3–5% for volatile tokens or retry during calmer markets.",
+    severity: "HIGH",
+  },
+  {
+    pattern: /insufficient lamports/i,
+    label: "Insufficient SOL (Lamports)",
+    description:
+      "Not enough lamports (SOL) to cover rent-exempt minimums for new accounts or transaction fees.",
+    fix: "Add at least 0.01 SOL to your wallet. New token accounts require ~0.002 SOL rent.",
+    severity: "HIGH",
+  },
+  {
+    pattern: /account already in use/i,
+    label: "Account Already In Use",
+    description:
+      "The account you're trying to create or initialize already exists on-chain.",
+    fix: "Use the existing account or use CreateIdempotent to avoid this error.",
+    severity: "MEDIUM",
+  },
+  {
+    pattern: /Token(?:2022|zQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb).*failed/i,
+    label: "Token-2022 Error",
+    description:
+      "A Token-2022 (token extensions) instruction failed. The program may not support this token type.",
+    fix: "Ensure the DEX and all instructions support Token-2022 tokens. Check for transfer fee or interest extensions.",
+    severity: "HIGH",
+  },
+  {
+    pattern: /privilege escalation/i,
+    label: "Privilege Escalation",
+    description:
+      "A program tried to perform an action it doesn't have permission for (e.g., signing without authority).",
+    fix: "Check that the transaction is signed by the correct wallet and all required signers are present.",
+    severity: "HIGH",
+  },
+  {
+    pattern: /immutable.*(failed|error|violat)/i,
+    label: "Immutable Account Violation",
+    description:
+      "Attempted to modify an immutable account or account owner.",
+    fix: "This account cannot be changed. Verify you're using the correct target account.",
+    severity: "HIGH",
+  },
+  {
+    pattern: /bonding.?curve/i,
+    label: "Bonding Curve Interaction",
+    description:
+      "This transaction interacts with a bonding curve (e.g., Pump.fun). The token may not have graduated to a DEX yet.",
+    fix: "Check if the token has migrated to Raydium. If still on the curve, verify the bonding curve PDA and parameters.",
+    severity: "MEDIUM",
+  },
+  {
+    pattern: /not rent exempt/i,
+    label: "Account Not Rent Exempt",
+    description:
+      "An account doesn't have enough SOL to be rent-exempt. Solana requires minimum balances for all accounts.",
+    fix: "Fund the account with at least 0.00203 SOL for standard token accounts.",
     severity: "HIGH",
   },
 ];

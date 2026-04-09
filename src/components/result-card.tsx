@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Share2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -75,8 +76,48 @@ const PRIORITY_COLORS: Record<string, string> = {
 export default function ResultCard({ result }: { result: AnalysisResult }) {
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedMarkdown, setCopiedMarkdown] = useState(false);
   const config = RISK_CONFIG[result.risk];
   const RiskIcon = config.icon;
+
+  const generateMarkdown = (): string => {
+    const riskEmoji = result.risk === "HIGH" ? "🔴" : result.risk === "MEDIUM" ? "🟡" : "🟢";
+    let md = `## ${riskEmoji} SolTrac Analysis — ${result.risk} RISK\n\n`;
+    md += `**Type:** ${result.breakdown.type} | **Status:** ${result.breakdown.status} | **Confidence:** ${result.confidence}%\n`;
+    
+    if (result.breakdown.signature && result.breakdown.signature !== "simulation") {
+      md += `**Signature:** \`${result.breakdown.signature}\`\n`;
+      md += `**Solscan:** https://solscan.io/tx/${result.breakdown.signature}\n`;
+    }
+
+    if (result.reasons.length > 0) {
+      md += `\n### Why\n`;
+      result.reasons.forEach((r) => {
+        const icon = r.severity === "HIGH" ? "❌" : r.severity === "MEDIUM" ? "⚠️" : "ℹ️";
+        md += `- ${icon} **${r.label}** — ${r.description}\n`;
+      });
+    }
+
+    if (result.fixes.length > 0) {
+      md += `\n### What to Do\n`;
+      result.fixes.forEach((f) => {
+        md += `- ✅ **${f.action}** — ${f.description}\n`;
+      });
+    }
+
+    md += `\n---\n_Analyzed by [SolTrac](https://soltrac.dev)_`;
+    return md;
+  };
+
+  const handleCopyMarkdown = async () => {
+    try {
+      await navigator.clipboard.writeText(generateMarkdown());
+      setCopiedMarkdown(true);
+      setTimeout(() => setCopiedMarkdown(false), 2000);
+    } catch {
+      // Clipboard may not be available
+    }
+  };
 
   const handleCopySignature = async () => {
     try {
@@ -92,32 +133,33 @@ export default function ResultCard({ result }: { result: AnalysisResult }) {
     <Card className={cn("overflow-hidden border", config.borderColor, config.glowClass)}>
       {/* Risk Header */}
       <CardHeader className={cn("p-5 sm:p-6", config.bgColor)}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 200, damping: 15 }}
+              className="shrink-0"
             >
               <div
                 className={cn(
-                  "rounded-xl p-2.5",
+                  "rounded-xl p-2 sm:p-2.5",
                   config.bgColor,
                   "border",
                   config.borderColor
                 )}
               >
-                <RiskIcon className={cn("h-6 w-6", config.color)} />
+                <RiskIcon className={cn("h-5 w-5 sm:h-6 sm:w-6", config.color)} />
               </div>
             </motion.div>
-            <div>
+            <div className="min-w-0">
               <h3
-                className={cn("text-lg font-bold tracking-tight", config.color)}
+                className={cn("text-base sm:text-lg font-bold tracking-tight leading-tight", config.color)}
                 style={{ fontFamily: "var(--font-space-grotesk)" }}
               >
                 {config.label}
               </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
                 {result.breakdown.type} •{" "}
                 {result.breakdown.status === "confirmed"
                   ? "Confirmed"
@@ -128,20 +170,45 @@ export default function ResultCard({ result }: { result: AnalysisResult }) {
               </p>
             </div>
           </div>
-          <Badge
-            variant={config.badgeVariant}
-            className={cn(
-              "text-xs font-bold px-3 py-1 uppercase tracking-wider",
-              result.risk === "LOW" &&
-                "bg-green-500/15 text-green-400 border-green-500/30",
-              result.risk === "MEDIUM" &&
-                "bg-amber-500/15 text-amber-400 border-amber-500/30",
-              result.risk === "HIGH" &&
-                "bg-red-500/15 text-red-400 border-red-500/30"
-            )}
-          >
-            {result.risk}
-          </Badge>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={handleCopyMarkdown}
+              className={cn(
+                "flex items-center gap-1 rounded-md px-2 py-1 sm:px-2.5 sm:py-1.5 text-[11px] sm:text-xs font-medium transition-all border cursor-pointer",
+                copiedMarkdown
+                  ? "border-green-500/30 bg-green-500/10 text-green-400"
+                  : "border-border/50 bg-secondary/50 text-muted-foreground hover:text-foreground hover:border-border"
+              )}
+              title="Copy analysis as Markdown"
+              type="button"
+            >
+              {copiedMarkdown ? (
+                <>
+                  <Check className="h-3 w-3" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Share2 className="h-3 w-3" />
+                  Share
+                </>
+              )}
+            </button>
+            <Badge
+              variant={config.badgeVariant}
+              className={cn(
+                "text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 uppercase tracking-wider",
+                result.risk === "LOW" &&
+                  "bg-green-500/15 text-green-400 border-green-500/30",
+                result.risk === "MEDIUM" &&
+                  "bg-amber-500/15 text-amber-400 border-amber-500/30",
+                result.risk === "HIGH" &&
+                  "bg-red-500/15 text-red-400 border-red-500/30"
+              )}
+            >
+              {result.risk}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
 

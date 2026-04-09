@@ -2,6 +2,7 @@ import Hero from "@/components/hero";
 import AnalyzerCard from "@/components/analyzer-card";
 import NetworkStrip from "@/components/network-strip";
 import Footer from "@/components/footer";
+import HowItWorks from "@/components/how-it-works";
 import { BackgroundDots, Spotlight } from "@/components/ui/background-effects";
 
 export default function Home() {
@@ -22,8 +23,11 @@ export default function Home() {
         {/* Network Intelligence Strip */}
         <NetworkStrip />
 
+        {/* How it Works */}
+        <HowItWorks />
+
         {/* Spacer */}
-        <div className="flex-1 min-h-[120px]" />
+        <div className="flex-1 min-h-[60px]" />
 
         {/* Footer */}
         <Footer />

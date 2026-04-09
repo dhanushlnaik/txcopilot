@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Loader2, ClipboardPaste, Sparkles } from "lucide-react";
+import { Search, Loader2, ClipboardPaste, Sparkles, FlaskConical, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,24 +31,31 @@ const DEMO_TRANSACTIONS = [
 ];
 
 export default function AnalyzerCard() {
+  const [mode, setMode] = useState<"analyze" | "simulate">("analyze");
   const [signature, setSignature] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = useCallback(async (sig?: string) => {
-    const txSig = sig || signature;
-    if (!txSig.trim()) return;
+    const txInput = sig || signature;
+    if (!txInput.trim()) return;
 
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      const res = await fetch("/api/analyze", {
+      const endpoint = mode === "simulate" ? "/api/simulate" : "/api/analyze";
+      const payload =
+        mode === "simulate"
+          ? { transaction: txInput.trim() }
+          : { signature: txInput.trim() };
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signature: txSig.trim() }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -64,7 +71,7 @@ export default function AnalyzerCard() {
     } finally {
       setLoading(false);
     }
-  }, [signature]);
+  }, [signature, mode]);
 
   const handlePaste = useCallback(async () => {
     try {
@@ -98,13 +105,41 @@ export default function AnalyzerCard() {
       <div className="animated-border">
         <Card className="relative overflow-hidden border-0 bg-card/80 backdrop-blur-sm">
           <CardContent className="p-6 sm:p-8">
+            {/* Mode toggle */}
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-secondary/50 mb-5 w-fit">
+              <button
+                type="button"
+                onClick={() => { setMode("analyze"); setResult(null); setError(null); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  mode === "analyze"
+                    ? "bg-[#00FFA3]/15 text-[#00FFA3] shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Search className="h-3 w-3" />
+                Analyze
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode("simulate"); setResult(null); setError(null); setSignature(""); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  mode === "simulate"
+                    ? "bg-[#9945FF]/15 text-[#9945FF] shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <FlaskConical className="h-3 w-3" />
+                Simulate
+              </button>
+            </div>
+
             {/* Input area */}
             <div className="flex flex-col gap-3">
               <label
                 htmlFor="tx-signature-input"
                 className="text-sm font-medium text-muted-foreground"
               >
-                Transaction Signature
+                {mode === "simulate" ? "Transaction Payload (Base64)" : "Transaction Signature"}
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -112,11 +147,19 @@ export default function AnalyzerCard() {
                   <Input
                     id="tx-signature-input"
                     type="text"
-                    placeholder="Paste a Solana transaction signature..."
+                    placeholder={
+                      mode === "simulate"
+                        ? "Paste a base64-encoded transaction..."
+                        : "Paste a Solana transaction signature..."
+                    }
                     value={signature}
                     onChange={(e) => setSignature(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="pl-10 pr-10 h-12 font-mono text-sm bg-background/50 border-border/50 focus:border-[#00FFA3]/50 focus:ring-[#00FFA3]/20 placeholder:text-muted-foreground/50"
+                    className={`pl-10 pr-10 h-12 font-mono text-sm bg-background/50 border-border/50 focus:ring-[#00FFA3]/20 placeholder:text-muted-foreground/50 ${
+                      mode === "simulate"
+                        ? "focus:border-[#9945FF]/50"
+                        : "focus:border-[#00FFA3]/50"
+                    }`}
                     disabled={loading}
                   />
                   <button
@@ -132,36 +175,54 @@ export default function AnalyzerCard() {
                   onClick={() => handleAnalyze()}
                   disabled={loading || !signature.trim()}
                   size="lg"
-                  className="h-12 px-6 bg-gradient-to-r from-[#00FFA3] to-[#14F195] text-[#050816] font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
+                  className={`h-12 px-6 font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0 ${
+                    mode === "simulate"
+                      ? "bg-gradient-to-r from-[#9945FF] to-[#DC1FFF] text-white"
+                      : "bg-gradient-to-r from-[#00FFA3] to-[#14F195] text-[#050816]"
+                  }`}
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : mode === "simulate" ? (
+                    <FlaskConical className="h-4 w-4" />
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
-                  <span className="hidden sm:inline ml-2">Analyze</span>
+                  <span className="hidden sm:inline ml-2">
+                    {mode === "simulate" ? "Simulate" : "Analyze"}
+                  </span>
                 </Button>
               </div>
             </div>
 
-            {/* Demo transaction chips */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="text-xs text-muted-foreground mr-1 self-center">
-                Try:
-              </span>
-              {DEMO_TRANSACTIONS.map((demo) => (
-                <button
-                  key={demo.label}
-                  onClick={() => handleDemoClick(demo.signature)}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/50 px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all disabled:opacity-40 cursor-pointer"
-                  type="button"
-                >
-                  <span>{demo.emoji}</span>
-                  {demo.label}
-                </button>
-              ))}
-            </div>
+            {/* Demo transaction chips (only in analyze mode) */}
+            {mode === "analyze" && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="text-xs text-muted-foreground mr-1 self-center">
+                  Try:
+                </span>
+                {DEMO_TRANSACTIONS.map((demo) => (
+                  <button
+                    key={demo.label}
+                    onClick={() => handleDemoClick(demo.signature)}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-secondary/50 px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-border transition-all disabled:opacity-40 cursor-pointer"
+                    type="button"
+                  >
+                    <span>{demo.emoji}</span>
+                    {demo.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {mode === "simulate" && (
+              <div className="mt-4 flex items-start gap-2 rounded-lg border border-[#9945FF]/20 bg-[#9945FF]/5 px-3 py-2">
+                <ArrowLeftRight className="h-3.5 w-3.5 text-[#9945FF] mt-0.5 shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  Pre-flight mode: paste a <strong className="text-foreground/80">base64-encoded transaction</strong> to predict if it will fail before sending.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

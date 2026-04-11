@@ -28,7 +28,7 @@ export default function Footer() {
           </a>
           <span>•</span>
           <a
-            href="https://github.com"
+            href="https://github.com/dhanushlnaik/soltrac"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-muted-foreground transition-colors"

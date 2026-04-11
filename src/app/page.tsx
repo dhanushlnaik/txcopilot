@@ -27,8 +27,8 @@ export default function Home() {
         {/* How it Works */}
         <HowItWorks />
 
-        {/* Alerts */}
-        <section className="mx-auto w-full max-w-2xl px-4 pt-2 pb-8">
+        {/* Wallet Alerts */}
+        <section className="mx-auto w-full max-w-2xl px-4 pb-12">
           <WebhookManager />
         </section>
 

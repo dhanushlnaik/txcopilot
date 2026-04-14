@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ShieldCheck,
@@ -20,7 +20,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import type { AnalysisResult, RiskLevel } from "@/lib/types";
+import type { AnalysisResult, ErrorCategory, FixParams, RiskLevel, SimResult } from "@/lib/types";
+import { SoltracBanner } from "soltrac-sdk/react";
 
 const RISK_CONFIG: Record<
   RiskLevel,
@@ -74,6 +75,46 @@ const PRIORITY_COLORS: Record<string, string> = {
   recommended: "text-amber-400 bg-amber-500/10 border-amber-500/20",
   optional: "text-muted-foreground bg-muted/50 border-border/50",
 };
+
+function toSimResult(result: AnalysisResult): SimResult {
+  const riskMap = { HIGH: "fail", MEDIUM: "warning", LOW: "safe" } as const;
+
+  const firstReason = result.reasons[0];
+  const firstFix = result.fixes[0];
+
+  let category: ErrorCategory | null = null;
+  if (firstReason) {
+    const label = firstReason.label.toLowerCase();
+    if (label.includes("slippage")) category = "slippage";
+    else if (label.includes("compute")) category = "compute_exceeded";
+    else if (label.includes("funds") || label.includes("balance")) category = "insufficient_funds";
+    else if (label.includes("account")) category = "account_not_found";
+    else if (label.includes("blockhash") || label.includes("expired") || label.includes("stale")) category = "stale_blockhash";
+    else if (label.includes("mev") || label.includes("front")) category = "mev_suspected";
+    else if (label.includes("program") || label.includes("custom") || label.includes("error")) category = "program_error";
+    else category = "unknown";
+  }
+
+  let fixParams: FixParams | null = null;
+  if (category === "slippage") {
+    fixParams = { type: "slippage", slippageBps: 50, deepLinkUrl: "https://jup.ag/swap/SOL-USDC?slippage=1.5" };
+  } else if (category === "compute_exceeded") {
+    fixParams = { type: "priority_fee", priorityFeeMicroLamports: 50_000 };
+  } else if (category === "stale_blockhash") {
+    fixParams = { type: "retry" };
+  }
+
+  return {
+    risk: riskMap[result.risk],
+    category,
+    reason: firstReason?.description ?? `${result.breakdown.type} transaction`,
+    fix: firstFix?.description ?? null,
+    fixParams,
+    confidence: result.confidence / 100,
+    source: "heuristic",
+    raw: result,
+  };
+}
 
 export default function ResultCard({ result }: { result: AnalysisResult }) {
   const [showDetails, setShowDetails] = useState(false);
@@ -282,6 +323,22 @@ export default function ResultCard({ result }: { result: AnalysisResult }) {
       </CardHeader>
 
       <CardContent className="p-0">
+        {/* SoltracBanner — inline CSS variable fallbacks for dark theme */}
+        <div
+          style={{
+            // Provide fallback values for the CSS variables used by SoltracBanner
+            // warning: amber tones, danger: red tones
+            "--color-background-warning": "rgba(245,158,11,0.12)",
+            "--color-text-warning": "#fbbf24",
+            "--color-border-warning": "rgba(245,158,11,0.3)",
+            "--color-background-danger": "rgba(239,68,68,0.12)",
+            "--color-text-danger": "#f87171",
+            "--color-border-danger": "rgba(239,68,68,0.3)",
+          } as React.CSSProperties}
+          className="px-5 pt-5 sm:px-6 sm:pt-6 empty:hidden"
+        >
+          <SoltracBanner result={toSimResult(result)} />
+        </div>
         {/* Why Section */}
         {result.reasons.length > 0 && (
           <div className="px-5 pt-5 sm:px-6 sm:pt-6">

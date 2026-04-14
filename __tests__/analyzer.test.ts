@@ -30,60 +30,72 @@ function buildRawTx(options?: {
 }
 
 describe("analyzeTransaction", () => {
-  it("maps 0x1771 to slippage error", () => {
+  it("maps Jupiter slippage (code 6001) to slippage category", () => {
     const rawTx = buildRawTx({ err: { InstructionError: [1, { Custom: 6001 }] } });
     const result = analyzeTransaction(rawTx, null, VALID_SIGNATURE);
 
-    expect(result.reasons.some((reason) => reason.code === "0x1771")).toBe(true);
+    expect(result.reasons.some((reason) => reason.code === "slippage")).toBe(true);
   });
 
-  it("maps 0x1 to insufficient funds", () => {
-    const rawTx = buildRawTx({ err: { InstructionError: [1, { Custom: 1 }] } });
+  it("maps Jupiter insufficient funds (code 6021) to insufficient_funds category", () => {
+    const rawTx = buildRawTx({ err: { InstructionError: [1, { Custom: 6021 }] } });
     const result = analyzeTransaction(rawTx, null, VALID_SIGNATURE);
 
-    expect(result.reasons.some((reason) => reason.code === "0x1")).toBe(true);
+    expect(result.reasons.some((reason) => reason.code === "insufficient_funds")).toBe(true);
   });
 
-  it("maps Jupiter 0x1778 correctly", () => {
+  it("maps Orca TokenMinSubceeded (code 6008) to slippage category", () => {
     const rawTx = buildRawTx({ err: { InstructionError: [1, { Custom: 6008 }] } });
     const result = analyzeTransaction(rawTx, null, VALID_SIGNATURE);
 
-    expect(result.reasons.some((reason) => reason.code === "0x1778")).toBe(true);
+    expect(result.reasons.some((reason) => reason.code === "slippage")).toBe(true);
   });
 
-  it("maps Orca 0x177c correctly", () => {
+  it("maps Orca TokenMaxExceeded (code 6012) to slippage category", () => {
     const rawTx = buildRawTx({ err: { InstructionError: [1, { Custom: 6012 }] } });
     const result = analyzeTransaction(rawTx, null, VALID_SIGNATURE);
 
-    expect(result.reasons.some((reason) => reason.code === "0x177c")).toBe(true);
+    expect(result.reasons.some((reason) => reason.code === "slippage")).toBe(true);
   });
 
-  it("maps Pump.fun 0x7d6 correctly", () => {
-    const rawTx = buildRawTx({ err: { InstructionError: [1, { Custom: 2006 }] } });
+  it("maps Pump.fun constraint seeds (code 1814) to program_error category", () => {
+    const rawTx = buildRawTx({ err: { InstructionError: [1, { Custom: 1814 }] } });
     const result = analyzeTransaction(rawTx, null, VALID_SIGNATURE);
 
-    expect(result.reasons.some((reason) => reason.code === "0x7d6")).toBe(true);
+    expect(result.reasons.some((reason) => reason.code === "program_error")).toBe(true);
   });
 
-  it("detects insufficient funds from logs", () => {
-    const rawTx = buildRawTx({ logs: ["Program log: insufficient funds"] });
+  it("detects insufficient funds from logs when err is unrecognized", () => {
+    // Log fallback (layer 3) only runs when err is non-null but unrecognized
+    const rawTx = buildRawTx({
+      err: { UnknownErrorShape: true },
+      logs: ["Program log: insufficient funds"],
+    });
     const result = analyzeTransaction(rawTx, null, VALID_SIGNATURE);
 
     expect(result.reasons.some((reason) => reason.label === "Insufficient Funds")).toBe(true);
   });
 
-  it("detects expired blockhash from logs", () => {
-    const rawTx = buildRawTx({ logs: ["Blockhash not found"] });
+  it("detects stale blockhash from logs when err is unrecognized", () => {
+    const rawTx = buildRawTx({
+      err: { UnknownErrorShape: true },
+      logs: ["Blockhash not found"],
+    });
     const result = analyzeTransaction(rawTx, null, VALID_SIGNATURE);
 
-    expect(result.reasons.some((reason) => reason.label === "Expired Blockhash")).toBe(true);
+    // categoryLabel('stale_blockhash') = "Stale Blockhash"
+    expect(result.reasons.some((reason) => reason.label === "Stale Blockhash")).toBe(true);
   });
 
-  it("detects compute units exceeded", () => {
-    const rawTx = buildRawTx({ logs: ["Program failed: exceeded CUs meter"] });
+  it("detects compute budget exceeded from logs when err is unrecognized", () => {
+    const rawTx = buildRawTx({
+      err: { UnknownErrorShape: true },
+      logs: ["Program failed: exceeded CUs meter"],
+    });
     const result = analyzeTransaction(rawTx, null, VALID_SIGNATURE);
 
-    expect(result.reasons.some((reason) => reason.label === "Compute Units Exceeded")).toBe(true);
+    // categoryLabel('compute_exceeded') = "Compute Budget Exceeded"
+    expect(result.reasons.some((reason) => reason.label === "Compute Budget Exceeded")).toBe(true);
   });
 
   it("ignores InitializeImmutableOwner", () => {

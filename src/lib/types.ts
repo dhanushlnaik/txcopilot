@@ -2,6 +2,44 @@
 // Core domain types for SolTrac
 // ===========================
 
+// ===========================
+// Simulation-first analysis types
+// ===========================
+
+export type ErrorCategory =
+  | "slippage"
+  | "compute_exceeded"
+  | "insufficient_funds"
+  | "account_not_found"
+  | "stale_blockhash"
+  | "program_error"
+  | "mev_suspected"
+  | "unknown";
+
+export type FixParams =
+  | { type: "slippage"; slippageBps: number; deepLinkUrl: string }
+  | { type: "priority_fee"; priorityFeeMicroLamports: number }
+  | { type: "retry" };
+
+export interface SimResult {
+  /** Outcome of simulation */
+  risk: "safe" | "warning" | "fail";
+  /** Structured error category, null on success */
+  category: ErrorCategory | null;
+  /** Human-readable explanation */
+  reason: string;
+  /** Actionable fix text, null if none */
+  fix: string | null;
+  /** Structured fix params for deep linking or auto-apply */
+  fixParams: FixParams | null;
+  /** 0.0–1.0, derived from error source not hardcoded */
+  confidence: number;
+  /** Which layer produced the result */
+  source: "simulation" | "logs" | "heuristic";
+  /** Raw simulation response for further inspection */
+  raw: unknown;
+}
+
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
 export interface RiskReason {

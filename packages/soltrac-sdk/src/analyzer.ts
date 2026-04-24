@@ -10,6 +10,7 @@ import type {
   TransactionBreakdown,
 } from "./types";
 import { inferTransactionType } from "./inferType";
+import { buildJupiterLinkFromLogs } from "./tokenParser";
 
 // ===========================
 // Simulation-first Transaction Analyzer
@@ -462,14 +463,18 @@ export function analyzeSimulation(
 // Helpers
 // ===========================
 
-function buildFixParams(category: ErrorCategory, _logs: string[]): FixParams | null {
+function buildFixParams(category: ErrorCategory, logs: string[]): FixParams | null {
   switch (category) {
-    case "slippage":
+    case "slippage": {
+      // Try to build a token-aware deep link from logs
+      const jupiterLink = buildJupiterLinkFromLogs(logs, { slippageBps: 150 });
       return {
         type: "slippage",
         slippageBps: 150,
-        deepLinkUrl: "https://jup.ag/swap/SOL-USDC?slippage=1.5",
+        // Fallback to generic link if token extraction fails
+        deepLinkUrl: jupiterLink || "https://jup.ag/swap/SOL-USDC?slippage=1.5",
       };
+    }
     case "compute_exceeded":
       return { type: "priority_fee", priorityFeeMicroLamports: 50_000 };
     case "stale_blockhash":

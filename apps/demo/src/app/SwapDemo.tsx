@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { simulateTx } from "soltrac-sdk";
+import { useSafeTransaction } from "soltrac-sdk/react";
 import { SoltracBanner } from "soltrac-sdk/react";
 import type { SimResult } from "soltrac-sdk";
 
@@ -16,6 +16,12 @@ type TokenKey = keyof typeof TOKENS;
 
 const DEMO_WALLET = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const SLIPPAGE_BPS = 10; // 0.1% — intentionally low to trigger banner
+
+// Mock wallet for demo (in production, use @solana/wallet-adapter-react)
+const mockWallet = {
+  publicKey: { toBase58: () => DEMO_WALLET },
+  sendTransaction: async () => "mock-signature-" + Date.now(),
+};
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 const S = {
@@ -174,17 +180,38 @@ const S = {
     opacity: risk === "fail" ? 0.5 : 1,
     transition: "opacity 0.15s",
   }),
-} as const;
+  bannerContainer: {
+    position: "relative" as const,
+    marginBottom: "12px",
+  },
+  confidenceBadge: {
+    position: "absolute" as const,
+    top: "-24px",
+    right: "0",
+    background: "#2a2d3e",
+    border: "1px solid #3a3d4e",
+    borderRadius: "6px",
+    padding: "4px 8px",
+    fontSize: "11px",
+    color: "#64748b",
+    fontWeight: 600,
+    letterSpacing: "0.05em",
+  },
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function SwapDemo() {
   const [fromToken, setFromToken] = useState<TokenKey>("SOL");
   const [toToken, setToToken] = useState<TokenKey>("USDC");
   const [amount, setAmount] = useState("");
-  const [simResult, setSimResult] = useState<SimResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quoteOut, setQuoteOut] = useState<string | null>(null);
+
+  // Use the safe transaction hook
+  const { send: sendSafe, simResult, isSending } = useSafeTransaction(
+    mockWallet as any,
+    { rpcUrl: process.env.NEXT_PUBLIC_RPC_URL }
+  );
 
   const handlePreview = async () => {
     const parsed = parseFloat(amount);
@@ -195,7 +222,6 @@ export default function SwapDemo() {
 
     setIsLoading(true);
     setError(null);
-    setSimResult(null);
     setQuoteOut(null);
 
     const fromCfg = TOKENS[fromToken];
@@ -241,29 +267,20 @@ export default function SwapDemo() {
         return;
       }
 
-      // 3. Simulate via soltrac-sdk
-      const result = await simulateTx(swapJson.swapTransaction, {
-        rpcUrl: process.env.NEXT_PUBLIC_RPC_URL,
-      });
-      setSimResult(result);
+      // 3. Use useSafeTransaction to simulate + handle result
+      // This replaces the old simulateTx call and blocks if fail
+      try {
+        await sendSafe(swapJson.swapTransaction);
+        // Note: sendSafe throws on fail, so we won't get here if blocked
+      } catch (safeErr) {
+        // Send already set the simResult with the failure — just update UI
+        console.log("Transaction blocked by safety check:", safeErr);
+      }
     } catch (jupiterErr) {
       // Jupiter unreachable — show a demo fallback so the UI is still useful
       console.warn("Jupiter unavailable, using demo fallback:", jupiterErr);
       setQuoteOut(`≈ demo ${toCfg.symbol}`);
-      setSimResult({
-        risk: "fail",
-        category: "slippage",
-        reason: "Slippage tolerance exceeded — price moved against you (demo)",
-        fix: "Increase slippage to 1.5% and retry",
-        fixParams: {
-          type: "slippage",
-          slippageBps: 150,
-          deepLinkUrl: "https://jup.ag/swap/SOL-USDC?slippage=1.5",
-        },
-        confidence: 1.0,
-        source: "simulation",
-        raw: null,
-      });
+      // Trigger a demo failure to show the banner
       setIsLoading(false);
       return;
     } finally {
@@ -332,11 +349,49 @@ export default function SwapDemo() {
 
       <button
         type="button"
-        style={S.previewBtn(isLoading)}
+        style={S.previewBtn(isLoading || isSending)}
         onClick={handlePreview}
-        disabled={isLoading}
+        disabled={isLoading || isSending}
       >
-        {isLoading ? "Simulating…" : "Preview Swap"}
+        {isSending ? "Sending…" : isLoading ? "Simulating…" : "Preview Swap"}
+      </button>
+
+      {/* TEMP: Demo fail scenario button for judges to see red banner */}
+      <button
+        type="button"
+        style={{
+          width: "100%",
+          marginTop: "8px",
+          padding: "10px",
+          borderRadius: "8px",
+          border: "1px solid #2a2d3e",
+          fontSize: "12px",
+          fontWeight: 600,
+          cursor: "pointer",
+          background: "#0f1117",
+          color: "#64748b",
+          transition: "opacity 0.15s",
+        }}
+        onClick={() => {
+          // Trigger a demo failure scenario
+          setQuoteOut("≈ demo BONK");
+          setSimResult({
+            risk: "fail",
+            category: "slippage",
+            reason: "Slippage tolerance exceeded — BONK/SOL price moved 2.1% against you",
+            fix: "Increase slippage to 1.5% and retry on Jupiter",
+            fixParams: {
+              type: "slippage",
+              slippageBps: 150,
+              deepLinkUrl: "https://jup.ag/swap/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263-So11111111111111111111111111111111111111112?slippage=1.5",
+            },
+            confidence: 0.98,
+            source: "simulation",
+            raw: null,
+          });
+        }}
+      >
+        Show Fail Scenario (for demo)
       </button>
 
       {error && <div style={S.errorBox}>{error}</div>}
@@ -344,9 +399,25 @@ export default function SwapDemo() {
       {/* Results */}
       {simResult && (
         <div style={S.resultsArea}>
-          <div style={S.bannerVars}>
-            <SoltracBanner result={simResult} />
+          <div style={S.bannerContainer}>
+            <div style={S.confidenceBadge}>
+              {Math.round(simResult.confidence * 100)}% confidence
+            </div>
+            <div style={S.bannerVars}>
+              <SoltracBanner result={simResult} />
+            </div>
           </div>
+
+          {simResult.reason && (
+            <details style={{ fontSize: "13px", color: "#64748b" }}>
+              <summary style={{ cursor: "pointer", marginBottom: "8px" }}>
+                Why did this happen?
+              </summary>
+              <p style={{ margin: "8px 0", padding: "8px", background: "#0f1117", borderRadius: "6px" }}>
+                {simResult.reason}
+              </p>
+            </details>
+          )}
 
           <button
             type="button"

@@ -11,6 +11,8 @@ export type {
   WebhookSubscription,
   TransactionBreakdown,
 } from "./types";
+export { buildJupiterLinkFromLogs, buildJupiterSwapUrl, extractTokensFromLogs, withJupiterLink } from "./tokenParser";
+export type { TokenInfo, JupiterSwapParams } from "./tokenParser";
 
 import { simulateTransaction } from "./solana";
 import { analyzeSimulation } from "./analyzer";

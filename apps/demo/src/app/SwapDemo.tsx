@@ -197,6 +197,7 @@ const S = {
     fontWeight: 600,
     letterSpacing: "0.05em",
   },
+} as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function SwapDemo() {
@@ -206,12 +207,16 @@ export default function SwapDemo() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quoteOut, setQuoteOut] = useState<string | null>(null);
+  const [demoResult, setDemoResult] = useState<SimResult | null>(null);
 
   // Use the safe transaction hook
-  const { send: sendSafe, simResult, isSending } = useSafeTransaction(
+  const { send: sendSafe, simResult: hookResult, isSending } = useSafeTransaction(
     mockWallet as any,
     { rpcUrl: process.env.NEXT_PUBLIC_RPC_URL }
   );
+
+  // Show demo result if triggered, otherwise use hook result
+  const simResult = demoResult || hookResult;
 
   const handlePreview = async () => {
     const parsed = parseFloat(amount);
@@ -322,12 +327,12 @@ export default function SwapDemo() {
           step="any"
           placeholder="0.00"
           value={amount}
-          onChange={(e) => { setAmount(e.target.value); setSimResult(null); setError(null); }}
+          onChange={(e) => { setAmount(e.target.value); setError(null); }}
         />
         <select
           style={S.select}
           value={fromToken}
-          onChange={(e) => { setFromToken(e.target.value as TokenKey); setSimResult(null); setQuoteOut(null); }}
+          onChange={(e) => { setFromToken(e.target.value as TokenKey); setQuoteOut(null); }}
         >
           {tokenOptions}
         </select>
@@ -341,7 +346,7 @@ export default function SwapDemo() {
         <select
           style={{ ...S.select, background: "transparent", border: "none" }}
           value={toToken}
-          onChange={(e) => { setToToken(e.target.value as TokenKey); setSimResult(null); setQuoteOut(null); }}
+          onChange={(e) => { setToToken(e.target.value as TokenKey); setQuoteOut(null); }}
         >
           {tokenOptions}
         </select>
@@ -375,7 +380,7 @@ export default function SwapDemo() {
         onClick={() => {
           // Trigger a demo failure scenario
           setQuoteOut("≈ demo BONK");
-          setSimResult({
+          setDemoResult({
             risk: "fail",
             category: "slippage",
             reason: "Slippage tolerance exceeded — BONK/SOL price moved 2.1% against you",

@@ -63,7 +63,11 @@ type: project
 
 ## Temp Changes (to revert later)
 
-None yet. Will document if SpaghettiDay 1 debugging requires temporary code changes.
+**TEMP: Demo fail scenario button** in `apps/demo/src/app/SwapDemo.tsx`
+- Button at line ~345 that triggers a mock slippage failure for judges to see red banner
+- Marked with `TEMP: Demo fail scenario button for judges to see red banner` comment
+- Should be removed or hidden after Day 3 video is recorded
+- Why: Judges need to see the failure UI working without necessarily connecting Jupiter API
 
 ## Key Metrics for Judges
 

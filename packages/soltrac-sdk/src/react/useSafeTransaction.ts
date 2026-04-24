@@ -19,7 +19,7 @@ interface UseSafeTransactionOptions {
   rpcUrl?: string;
 }
 
-interface UseSafeTransactionResult {
+export interface UseSafeTransactionResult {
   /** Send a transaction with pre-flight simulation */
   send: (tx: Transaction | VersionedTransaction | string) => Promise<{
     signature: string;

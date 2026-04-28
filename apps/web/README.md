@@ -1,171 +1,171 @@
-# SolTrac
+# SolTrac Web App
 
 > **Know before you send. Fix before you fail.**
 
-SolTrac is a Solana transaction intelligence platform that predicts whether a transaction will fail, explains why, and tells you how to fix it. Built for developers and advanced traders to reduce guesswork, save time, and navigate network congestion.
+Next.js App Router frontend for [SolTrac](../../README.md) — the Solana transaction intelligence platform. Three pages, five API routes, backed by `soltrac-sdk`.
 
-🔗 **[Live Demo →](https://soltrac.vercel.app)**
-
----
-
-## ✨ Features
-
-### 🔍 Transaction Analyzer
-A rule-based heuristics engine that diagnoses Solana transactions with high confidence:
-- **22+ Protocol-Specific Error Codes** — Jupiter v6, Raydium AMM/CLMM, Orca Whirlpool, Pump.fun, Anchor
-- **17 Log Pattern Scanners** — slippage, compute exhaustion, Token-2022, bonding curves, privilege escalation
-- **Smart Risk Scoring** — confirmed txs score LOW; genuine failures surface as MEDIUM/HIGH
-- **Program ID Inference** — identifies SWAP, MEV_TIP, NFT_TRADE, STAKE from major protocol program IDs
-- **Network-Aware Analysis** — cross-references priority fees against real-time congestion
-
-### ⚡ Pre-flight Simulation
-Simulate transactions **before sending them on-chain**:
-- Accepts base64-encoded transaction payloads
-- Runs `simulateTransaction` via RPC
-- Pipes simulation results through the full analyzer engine
-- Predicts success/failure with actionable diagnostics
-
-### 🔔 Webhook Alerts
-Monitor wallets and receive real-time failure alerts:
-- Subscribe to wallet addresses with custom webhook URLs
-- Alert on `failed` transactions or `high_risk` analysis results
-- Discord webhook formatting with rich embeds
-- Admin key auth, retry with exponential backoff, signature dedup
-- File-persisted storage with force-test mode
-
-### 🤖 AI-Powered Explanations
-Get plain-language breakdowns of complex failures:
-- Powered by Google Gemini with multi-model fallback
-- Quality validation ensures complete, structured responses
-- Streaming text response for real-time display
-- Only offered when heuristic analysis is inconclusive
-
-### 🎨 UI / UX
-- **Dark-first Solana Palette** — `#050816` background with mint/purple/magenta gradients
-- **Analyze / Simulate Mode Toggle** — green (analyze) vs purple (simulate) visual modes
-- **"How it Works"** — 3-step animated guide (Paste → Analyze → Fix)
-- **Result Sharing** — one-click "Copy as Markdown" for team collaboration
-- **Animated Gradient Border** — rotating conic gradient on the analyzer card
-- **Live Network Strip** — real-time TPS, congestion, and fee tier
-- **Fully Mobile Responsive** — tested at 390px viewport
+🔗 **[Live Demo →](https://soltrac.vercel.app)** · [Root README →](../../README.md) · [SDK →](../../packages/soltrac-sdk/README.md)
 
 ---
 
-## 🛠 API Reference
+## Pages
 
-| Endpoint | Method | Description |
+### `/` — Transaction Analyzer
+
+Two modes on the same card:
+- **Analyze** — paste a confirmed signature, get post-mortem analysis (risk level, root cause, fix list)
+- **Simulate** — paste a base64 tx, predict failure before sending
+
+### `/check` — Pre-flight Playground
+
+Full risk assessment for an unsigned transaction. Shows:
+- Animated risk score (0–100) with `DO NOT SEND / REVIEW / SEND` recommendation
+- Root cause + failed-at location + retryable badge
+- 8 animated risk signal bars with live scores and reasons
+- Ranked fix list with copy-paste code hints
+- Instruction trace (depth-indented CPI call tree, failed nodes pulse red)
+- Compute unit probe (consumed / limit / recommended / headroom bar)
+- Priority fee tiers (economy / standard / fast with success rate bars)
+- Detected protocol badges + protocol risk tags
+- Taxonomy match card when a known error pattern is found
+
+### `/network` — Network Pulse
+
+Live Solana network stats, auto-refreshes every 15 seconds:
+- TPS, success rate, current slot
+- Congestion score (0–100) with animated bar and LOW/MODERATE/HIGH/CRITICAL label
+- `GOOD TO SEND / CAUTION / WAIT` recommendation with reason
+- Priority fee tiers from `getRecentPrioritizationFees()` with μL and SOL denomination
+
+---
+
+## API Routes
+
+| Route | Method | Description |
 |---|---|---|
-| `/api/analyze` | POST | Analyze a transaction by signature |
-| `/api/simulate` | POST | Simulate a base64-encoded transaction |
-| `/api/network` | GET | Get current network status (TPS, congestion, fees) |
-| `/api/webhooks` | GET/POST | List or create webhook subscriptions |
-| `/api/webhooks/[id]` | DELETE | Remove a webhook subscription |
-| `/api/webhooks/check` | POST | Poll wallets and deliver alerts |
-| `/api/explain` | POST | Stream AI explanation via Gemini |
+| `/api/preflight` | POST | Full risk assessment — accepts base64 tx or signature |
+| `/api/analyze` | POST | Post-mortem on confirmed tx by signature |
+| `/api/simulate` | POST | Single-pass simulation on base64 tx |
+| `/api/explain` | POST | Streaming AI explanation via Gemini |
+| `/api/network` | GET | Live TPS, congestion score, fee tiers |
+| `/api/webhooks` | GET/POST | Wallet alert subscriptions |
+| `/api/webhooks/check` | POST | Poll subscribed wallets, deliver Discord alerts |
 
----
+### `/api/preflight` — request/response
 
-## 🧪 Testing
+```ts
+// POST body
+{ input: string }   // base64-encoded tx OR 86–88 char signature
 
-```bash
-pnpm test
+// Response — base64 tx input
+{
+  success: true,
+  inputType: "transaction",
+  explanation: Explanation,   // deterministic root cause + fixes + trace
+  preflight: {
+    risk: "safe" | "warning" | "fail",
+    recommendation: "SEND" | "REVIEW" | "DO_NOT_SEND",
+    riskScore: RiskScore,      // score + 8 signals + confidence
+    simulation: MultiPassReport, // baseline + optimistic + cuProbe + feeTiers
+    protocols: FingerprintResult,
+    taxonomyMatch: ErrorEntry | null
+  }
+}
+
+// Response — signature input (post-mortem)
+{ success: true, inputType: "signature", explanation: Explanation, preflight: null }
 ```
 
-**35 tests** across 4 suites:
-- `analyzer.test.ts` — 15 tests (error codes, log patterns, false positives, risk scoring, type inference)
-- `api.test.ts` — 12 tests (input validation, webhook CRUD, admin auth, polling)
-- `explain.test.ts` — 4 tests (payload validation, streaming, model fallback)
-- `solana.test.ts` — 4 tests (signature validation)
-
 ---
 
-## 🏗 Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16.2 (App Router) + React 19 + TypeScript |
-| Styling | Tailwind CSS v4, shadcn/ui, Framer Motion |
-| Solana | @solana/web3.js + Helius API (with public RPC fallback) |
-| AI | Google Gemini (multi-model fallback) |
-| Testing | Vitest |
-| Deployment | Vercel |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js v18+
-- pnpm
-
-### Installation
+## Setup
 
 ```bash
-# Clone and install
-git clone https://github.com/dhanushlnaik/soltrac.git
-cd soltrac
+# From repo root
 pnpm install
 
-# Configure environment
-cp .env.example .env.local
+# Copy and fill env
+cp apps/web/.env.example apps/web/.env.local
+
+# Start dev server
+pnpm dev   # → http://localhost:3000
 ```
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `HELIUS_API_KEY` | Recommended | Helius API key for enriched transaction parsing |
-| `HELIUS_RPC_URL` | Recommended | Custom Helius RPC endpoint |
-| `SOLANA_RPC_URL` | Fallback | Public RPC URL (auto-configured if empty) |
-| `GEMINI_API_KEY` | Optional | Enables AI-powered explanations |
-| `GEMINI_EXPLAIN_MODEL` | Optional | Model override (default: `gemini-1.5-flash`) |
-| `WEBHOOK_ADMIN_KEY` | Optional | Protects webhook API with admin auth |
-
-### Run
-
-```bash
-pnpm dev        # Development server → http://localhost:3000
-pnpm test       # Run test suite
-pnpm build      # Production build
-```
+| `SOLANA_RPC_URL` | Yes | Solana RPC endpoint |
+| `HELIUS_API_KEY` | Recommended | Enriched tx parsing — better analysis quality |
+| `HELIUS_RPC_URL` | Recommended | Helius RPC URL |
+| `GEMINI_API_KEY` | Optional | Enables AI explanation tier |
+| `GEMINI_EXPLAIN_MODEL` | Optional | Override model (default: `gemini-1.5-flash`) |
+| `WEBHOOK_ADMIN_KEY` | Optional | Admin auth for webhook write endpoints |
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 src/
 ├── app/
 │   ├── api/
-│   │   ├── analyze/route.ts        # Transaction analysis
-│   │   ├── simulate/route.ts       # Pre-flight simulation
-│   │   ├── explain/route.ts        # AI explanation (Gemini)
-│   │   ├── network/route.ts        # Network status
-│   │   ├── webhooks/route.ts       # Webhook CRUD
-│   │   ├── webhooks/[id]/route.ts  # Webhook delete
-│   │   └── webhooks/check/route.ts # Webhook polling
-│   ├── page.tsx                    # Main page
-│   ├── layout.tsx                  # Root layout
-│   └── globals.css                 # Design system
+│   │   ├── preflight/route.ts      # Full pre-flight — routes by input type
+│   │   ├── analyze/route.ts        # Post-mortem on confirmed tx
+│   │   ├── simulate/route.ts       # Single-pass simulation
+│   │   ├── explain/route.ts        # Streaming AI via Gemini
+│   │   ├── network/route.ts        # Live TPS, congestion, fees
+│   │   └── webhooks/               # Wallet alert CRUD + polling
+│   ├── check/
+│   │   ├── page.tsx                # Server component + metadata
+│   │   └── CheckPage.tsx           # Pre-flight playground (client)
+│   ├── network/
+│   │   ├── page.tsx                # Server component + metadata
+│   │   └── NetworkPage.tsx         # Live network pulse (client)
+│   ├── page.tsx                    # Home — analyzer + simulate
+│   └── globals.css                 # Design tokens + animations
 ├── components/
-│   ├── analyzer-card.tsx           # Input card (Analyze/Simulate)
-│   ├── result-card.tsx             # Results + Share + AI Explain
-│   ├── webhook-manager.tsx         # Alerts dashboard
-│   ├── how-it-works.tsx            # 3-step guide
-│   ├── hero.tsx                    # Hero section
+│   ├── analyzer-card.tsx           # Mode toggle + input + result
+│   ├── result-card.tsx             # AnalysisResult display + AI explain
+│   ├── hero.tsx                    # Hero with Pre-flight + Network CTAs
 │   ├── network-strip.tsx           # Live network bar
+│   ├── how-it-works.tsx            # 3-step animated guide
+│   ├── webhook-manager.tsx         # Wallet alerts dashboard
 │   └── ui/                        # shadcn/ui primitives
-├── lib/
-│   ├── analyzer.ts                 # Heuristics engine
-│   ├── solana.ts                   # RPC helpers + simulation
-│   ├── webhook-store.ts            # Webhook persistence
-│   ├── webhook-auth.ts             # Admin auth middleware
-│   └── types.ts                    # Type definitions
-└── __tests__/                      # Vitest test suites
+└── lib/
+    ├── solana.ts                   # RPC helpers (getNetworkStatus, simulateRawTx)
+    ├── types.ts                    # Re-exports from soltrac-sdk
+    ├── webhook-store.ts            # File-persisted webhook store
+    └── webhook-auth.ts             # Admin key middleware
 ```
 
 ---
 
-## 📄 License
+## Commands
+
+```bash
+pnpm dev      # Development server → http://localhost:3000
+pnpm build    # Production build
+pnpm start    # Serve production build
+pnpm lint     # ESLint
+pnpm test     # Vitest test suite
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js App Router + React 19 + TypeScript |
+| Styling | Tailwind CSS, shadcn/ui, Framer Motion |
+| Fonts | Space Grotesk (headings), Geist Mono (code) |
+| Intelligence | soltrac-sdk (simulator, scorer, taxonomy, fingerprint, explainer) |
+| AI | Google Gemini streaming |
+| Solana | @solana/web3.js + Helius |
+
+---
+
+## License
 
 MIT

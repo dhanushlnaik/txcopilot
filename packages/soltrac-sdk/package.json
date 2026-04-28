@@ -1,22 +1,67 @@
 {
   "name": "soltrac-sdk",
-  "version": "0.1.0",
-  "private": true,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "version": "0.2.0",
+  "description": "Solana transaction intelligence — pre-flight simulation, risk scoring, error taxonomy, and protocol fingerprinting",
+  "author": "Dhanush Naik",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dhanushlnaik/soltrac"
+  },
+  "keywords": [
+    "solana",
+    "transaction",
+    "simulation",
+    "preflight",
+    "defi",
+    "jupiter",
+    "raydium",
+    "sdk"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./react": "./src/react/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.mjs",
+      "require": "./dist/react/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^19"
+    "@types/react": "^19",
+    "tsup": "^8.3.0",
+    "typescript": "^5"
   },
   "peerDependencies": {
     "@solana/web3.js": ">=1",
     "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

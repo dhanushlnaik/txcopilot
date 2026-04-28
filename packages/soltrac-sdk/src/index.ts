@@ -9,6 +9,8 @@ export type {
   AnalysisResult,
   NetworkStatus,
   WebhookSubscription,
+  WebhookEvent,
+  WebhookAlertPayload,
   TransactionBreakdown,
   PreflightResult,
 } from "./types";
@@ -85,8 +87,8 @@ export async function preflight(
     simulateTransaction(txObj, options).then(analyzeSimulation),
   ]);
 
-  // Score using the richer multi-pass report
-  const riskScore = await scoreRisk(report, fastSim, options);
+  // Score using the richer multi-pass report — pass accountKeys for live signals
+  const riskScore = await scoreRisk(report, fastSim, { ...options, accountKeys });
 
   // Primary SimResult: stale blockhash gets its own category override
   const simResult: SimResult = report.isStaleBlockhash

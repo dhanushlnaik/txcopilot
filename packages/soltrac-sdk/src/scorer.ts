@@ -220,25 +220,133 @@ function scoreInstructionComplexity(report: MultiPassReport): ScorerSignal {
   return { name: "instruction_complexity", score, weight: WEIGHTS.instruction_complexity, available: true, reason };
 }
 
-// Stub signals — will be live once indexer ships
-function stubProgramErrorHistory(): ScorerSignal {
-  return {
-    name: "program_error_history",
-    score: 50,
-    weight: WEIGHTS.program_error_history,
-    available: false,
-    reason: "Historical program reliability data not yet available (indexer pending)",
-  };
+// Known system-level programs to skip when picking a "primary" program
+const SKIP_PROGRAMS = new Set([
+  "11111111111111111111111111111111",           // System
+  "ComputeBudget111111111111111111111111111111", // ComputeBudget
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", // SPL Token
+  "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bSo", // ATA
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",  // Token-2022
+  "SysvarC1ock11111111111111111111111111111111",
+  "SysvarRent111111111111111111111111111111111",
+]);
+
+function failureScore(failRate: number): number {
+  if (failRate >= 0.30) return 85;
+  if (failRate >= 0.20) return 65;
+  if (failRate >= 0.10) return 40;
+  if (failRate >= 0.05) return 20;
+  return 5;
 }
 
-function stubWalletFailureRate(): ScorerSignal {
-  return {
-    name: "wallet_failure_rate",
-    score: 50,
-    weight: WEIGHTS.wallet_failure_rate,
-    available: false,
-    reason: "Wallet failure history not yet available (indexer pending)",
-  };
+async function scoreProgramErrorHistory(
+  accountKeys: string[],
+  rpcUrl?: string
+): Promise<ScorerSignal> {
+  // Pick the first non-system account key as the primary program proxy.
+  // Program IDs are typically non-signers near the end of the account list,
+  // but any account key not in the skip set is a reasonable proxy.
+  const primaryProgram = accountKeys.find((k) => !SKIP_PROGRAMS.has(k));
+
+  if (!primaryProgram) {
+    return {
+      name: "program_error_history",
+      score: 50,
+      weight: WEIGHTS.program_error_history,
+      available: false,
+      reason: "No known program found in account keys",
+    };
+  }
+
+  try {
+    const { Connection, PublicKey } = await import("@solana/web3.js");
+    const conn = new Connection(rpcUrl ?? DEFAULT_RPC, { commitment: "confirmed" });
+    const sigs = await conn.getSignaturesForAddress(new PublicKey(primaryProgram), { limit: 100 });
+
+    if (sigs.length === 0) {
+      return {
+        name: "program_error_history",
+        score: 10,
+        weight: WEIGHTS.program_error_history,
+        available: true,
+        reason: `No recent transactions found for this program`,
+      };
+    }
+
+    const failed = sigs.filter((s) => s.err !== null).length;
+    const failRate = failed / sigs.length;
+    const score = failureScore(failRate);
+
+    return {
+      name: "program_error_history",
+      score,
+      weight: WEIGHTS.program_error_history,
+      available: true,
+      reason: `${failed}/${sigs.length} recent txs failed (${Math.round(failRate * 100)}% error rate)`,
+    };
+  } catch {
+    return {
+      name: "program_error_history",
+      score: 50,
+      weight: WEIGHTS.program_error_history,
+      available: false,
+      reason: "Program error history unavailable — RPC lookup failed",
+    };
+  }
+}
+
+async function scoreWalletFailureRate(
+  accountKeys: string[],
+  rpcUrl?: string
+): Promise<ScorerSignal> {
+  // Account key [0] is always the fee payer in Solana
+  const feePayer = accountKeys[0];
+
+  if (!feePayer) {
+    return {
+      name: "wallet_failure_rate",
+      score: 50,
+      weight: WEIGHTS.wallet_failure_rate,
+      available: false,
+      reason: "Fee payer not found in account keys",
+    };
+  }
+
+  try {
+    const { Connection, PublicKey } = await import("@solana/web3.js");
+    const conn = new Connection(rpcUrl ?? DEFAULT_RPC, { commitment: "confirmed" });
+    const sigs = await conn.getSignaturesForAddress(new PublicKey(feePayer), { limit: 50 });
+
+    if (sigs.length === 0) {
+      return {
+        name: "wallet_failure_rate",
+        score: 5,
+        weight: WEIGHTS.wallet_failure_rate,
+        available: true,
+        reason: "New wallet — no recent transaction history",
+      };
+    }
+
+    const failed = sigs.filter((s) => s.err !== null).length;
+    const failRate = failed / sigs.length;
+    const score = failureScore(failRate);
+
+    return {
+      name: "wallet_failure_rate",
+      score,
+      weight: WEIGHTS.wallet_failure_rate,
+      available: true,
+      reason: `${failed}/${sigs.length} recent wallet txs failed (${Math.round(failRate * 100)}% error rate)`,
+    };
+  } catch {
+    return {
+      name: "wallet_failure_rate",
+      score: 50,
+      weight: WEIGHTS.wallet_failure_rate,
+      available: false,
+      reason: "Wallet failure rate unavailable — RPC lookup failed",
+    };
+  }
 }
 
 // ── Aggregator ────────────────────────────────────────────────────────────────
@@ -281,6 +389,8 @@ function aggregate(signals: ScorerSignal[]): RiskScore {
 
 export interface ScoreOptions {
   rpcUrl?: string;
+  /** Account keys from the transaction — enables live program/wallet signals */
+  accountKeys?: string[];
 }
 
 export async function scoreRisk(
@@ -288,9 +398,14 @@ export async function scoreRisk(
   simResult: SimResult,
   options?: ScoreOptions
 ): Promise<RiskScore> {
-  // Network congestion is async; run it alongside synchronous scorers
-  const [networkSignal] = await Promise.all([
-    scoreNetworkCongestion(options?.rpcUrl),
+  const rpcUrl = options?.rpcUrl;
+  const accountKeys = options?.accountKeys ?? [];
+
+  // Run all async signals in parallel
+  const [networkSignal, programSignal, walletSignal] = await Promise.all([
+    scoreNetworkCongestion(rpcUrl),
+    scoreProgramErrorHistory(accountKeys, rpcUrl),
+    scoreWalletFailureRate(accountKeys, rpcUrl),
   ]);
 
   const signals: ScorerSignal[] = [
@@ -300,8 +415,8 @@ export async function scoreRisk(
     scoreBlockhashAge(report),
     scoreAccountConflicts(simResult),
     scoreInstructionComplexity(report),
-    stubProgramErrorHistory(),
-    stubWalletFailureRate(),
+    programSignal,
+    walletSignal,
   ];
 
   return aggregate(signals);

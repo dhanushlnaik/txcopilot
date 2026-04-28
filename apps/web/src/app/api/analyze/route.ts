@@ -6,7 +6,10 @@ import {
   getNetworkStatus,
 } from "@/lib/solana";
 import { analyzeTransaction } from "@/lib/analyzer";
-import type { AnalyzeResponse } from "@/lib/types";
+
+type AnalyzeResponse =
+  | { success: true; data: ReturnType<typeof analyzeTransaction> }
+  | { success: false; error: string };
 
 export async function POST(request: Request) {
   try {

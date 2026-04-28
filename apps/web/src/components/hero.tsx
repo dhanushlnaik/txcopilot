@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Activity } from "lucide-react";
 
 export default function Hero() {
   return (
@@ -60,6 +60,13 @@ export default function Hero() {
         >
           <ShieldCheck className="h-4 w-4" />
           Pre-flight Check
+        </Link>
+        <Link
+          href="/network"
+          className="inline-flex items-center gap-2 rounded-full border border-[#00FFA3]/20 bg-[#00FFA3]/5 px-5 py-2 text-sm font-medium text-[#00FFA3]/80 hover:bg-[#00FFA3]/10 transition-colors"
+        >
+          <Activity className="h-4 w-4" />
+          Network Pulse
         </Link>
       </motion.div>
     </section>

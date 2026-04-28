@@ -1,5 +1,14 @@
 {
   "name": "soltrac-monorepo",
   "private": true,
-  "workspaces": ["packages/*", "apps/*"]
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter soltrac-sdk build && pnpm --filter web build",
+    "soltrac": "pnpm --filter soltrac-cli dev",
+    "check": "pnpm --filter soltrac-cli run check",
+    "network": "pnpm --filter soltrac-cli run network",
+    "explain": "pnpm --filter soltrac-cli run explain",
+    "program": "pnpm --filter soltrac-cli run program"
+  }
 }

@@ -42,6 +42,27 @@ export interface SimResult {
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
+// ── Preflight result — full multi-pass analysis ───────────────────────────────
+
+export interface PreflightResult {
+  /** Weighted 8-signal risk score */
+  riskScore: import("./scorer").RiskScore;
+  /** Fast single-pass analysis (backward compat) */
+  simResult: SimResult;
+  /** Full multi-pass simulation detail */
+  simulation: import("./simulator").MultiPassReport;
+  /** Protocols detected in the transaction */
+  protocols: import("./fingerprint").FingerprintResult;
+  /** Rich taxonomy entry for the root error, if matched */
+  taxonomyMatch: import("./taxonomy").ErrorEntry | null;
+  // Convenience top-level accessors (mirrors simResult fields)
+  risk: SimResult["risk"];
+  recommendation: import("./scorer").Recommendation;
+  reason: string;
+  fix: string | null;
+  fixParams: FixParams | null;
+}
+
 export interface RiskReason {
   /** Short label for the reason */
   label: string;

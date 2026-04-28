@@ -22,6 +22,8 @@ export { lookupError, entriesForProgram } from "./taxonomy";
 export type { ErrorEntry, TaxonomyFix } from "./taxonomy";
 export { fingerprint, lookupProtocol, extractAccountKeys } from "./fingerprint";
 export type { FingerprintResult, ProtocolInfo, ProtocolCategory, ProtocolRisk } from "./fingerprint";
+export { explain, explainFromSimulation } from "./explainer";
+export type { Explanation, ExplanationFix, InstructionTraceEntry, ExplainTier, ExplainOptions } from "./explainer";
 
 import { simulateTransaction } from "./solana";
 import { analyzeSimulation } from "./analyzer";

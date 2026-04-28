@@ -1,6 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
+import { ShieldCheck } from "lucide-react";
 
 export default function Hero() {
   return (
@@ -44,6 +46,22 @@ export default function Hero() {
         Predict if a Solana transaction will fail, understand why, and get the
         next best action instantly.
       </motion.p>
+
+      {/* CTA links */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+        className="mt-6 flex flex-wrap items-center justify-center gap-3"
+      >
+        <Link
+          href="/check"
+          className="inline-flex items-center gap-2 rounded-full border border-[#9945FF]/30 bg-[#9945FF]/10 px-5 py-2 text-sm font-medium text-[#D7B8FF] hover:bg-[#9945FF]/20 transition-colors"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Pre-flight Check
+        </Link>
+      </motion.div>
     </section>
   );
 }

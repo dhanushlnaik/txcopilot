@@ -226,7 +226,7 @@ export default function WebhookManager() {
   };
 
   return (
-    <Card className="border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden">
+    <Card className="sol-panel overflow-hidden">
       {/* Header with gradient accent */}
       <div className="px-5 pt-5 pb-4 sm:px-6 border-b border-border/20 bg-gradient-to-b from-[#9945FF]/5 to-transparent">
         <div className="flex flex-wrap items-start justify-between gap-3">

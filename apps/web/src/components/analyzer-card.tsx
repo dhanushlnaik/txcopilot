@@ -102,8 +102,8 @@ export default function AnalyzerCard() {
   return (
     <section className="relative w-full max-w-2xl mx-auto px-4">
       {/* Main analyzer card with animated border */}
-      <div className="animated-border">
-        <Card className="relative overflow-hidden border-0 bg-card/80 backdrop-blur-sm">
+      <div className="sol-box">
+        <Card className="sol-panel relative overflow-hidden border-0">
           <CardContent className="p-6 sm:p-8">
             {/* Mode toggle */}
             <div className="flex items-center gap-1 p-1 rounded-lg bg-secondary/50 mb-5 w-fit">
